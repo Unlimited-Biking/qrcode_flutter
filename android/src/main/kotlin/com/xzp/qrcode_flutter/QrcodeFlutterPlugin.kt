@@ -17,14 +17,28 @@ class QrcodeFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Acti
     private var channel: MethodChannel? = null
     private var activityBinding: ActivityPluginBinding? = null
     private var activityRef: WeakReference<android.app.Activity>? = null
+    private var pluginBinding: FlutterPlugin.FlutterPluginBinding? = null
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        pluginBinding = binding
         channel = MethodChannel(binding.binaryMessenger, "plugins/qr_capture/method")
         channel?.setMethodCallHandler(this)
+    }
 
-        binding.platformViewRegistry.registerViewFactory(
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        activityBinding = binding
+        activityRef = WeakReference(binding.activity)
+
+        // ViewFactory burada activity ve messenger ile kaydediliyor
+        pluginBinding?.platformViewRegistry?.registerViewFactory(
             "plugins/qr_capture_view",
-            QRCaptureViewFactory()
+            QRCaptureViewFactory(
+                activity = binding.activity,
+                messenger = pluginBinding!!.binaryMessenger,
+                addPermissionListener = { listener ->
+                    binding.addRequestPermissionsResultListener(listener)
+                }
+            )
         )
     }
 
@@ -69,11 +83,6 @@ class QrcodeFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Acti
         }
     }
 
-    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-        activityBinding = binding
-        activityRef = WeakReference(binding.activity)
-    }
-
     override fun onDetachedFromActivity() {
         activityBinding = null
         activityRef = null
@@ -90,5 +99,6 @@ class QrcodeFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Acti
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel?.setMethodCallHandler(null)
         channel = null
+        pluginBinding = null
     }
 }
